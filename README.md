@@ -8,7 +8,7 @@ Your own Cloudflare Worker, in your own Cloudflare account, fronting your own R2
 
 Crate encrypts every file in your browser before it leaves the tab, and stores the ciphertext in a bucket you own. Until now, connecting the tab to that bucket meant four manual steps in the Cloudflare dashboard: copy an account ID, create a bucket, create an API token (whose secret is shown exactly once), and paste a CORS policy.
 
-This Worker replaces all four with one click. It holds an R2 *binding* — not an API token — so there is no secret to copy, no CORS to configure, and no account ID to find. Cloudflare creates the bucket for you when you deploy.
+This Worker replaces all four with one click. It holds an R2 *binding* — not an API token — so there is no API token to create, no CORS to configure, and no account ID to find. Cloudflare creates the bucket and connects it for you when you deploy; the only thing you paste is the connection secret Crate generates for you, into `CARRIER_SECRET`.
 
 **What the Worker sees:** ciphertext, and the size and timing of your reads and writes.
 **What it never sees:** your passphrase, any key, or a single plaintext byte.
@@ -16,9 +16,9 @@ This Worker replaces all four with one click. It holds an R2 *binding* — not a
 
 ## Deploy
 
-1. Start a new folder at [crate.naklios.dev](https://crate.naklios.dev) and choose **One-click carrier**. Crate shows a generated secret.
-2. Click the button above. Cloudflare copies this repository into your GitHub or GitLab account, creates the R2 bucket, and asks for `CARRIER_SECRET` — paste the secret from step 1.
-3. Click **Visit** on Cloudflare's success screen. The Worker's page has a **Continue to Crate** button that carries its own URL back into the wizard — nothing to copy. Pick a passphrase. Done.
+1. Open [crate.naklios.dev](https://crate.naklios.dev) and choose **Set up with one click**. Crate shows a generated secret — copy it.
+2. Click the button above. Cloudflare copies this repository into your GitHub or GitLab account, creates the R2 bucket, and asks for `CARRIER_SECRET` — paste the secret from step 1, leave the rest as suggested, click **Deploy**. The build takes about a minute; **the build page does not update by itself — reload it** to see the result.
+3. When it says deployed, click **Visit**. The Worker's page has a **Continue to Crate** button that carries its own URL back into the wizard — nothing to copy. Back in Crate: **Verify**, then **Next →**, pick a passphrase, and download your `.crate-creds` file.
 
 Manual deploy, if you prefer:
 
