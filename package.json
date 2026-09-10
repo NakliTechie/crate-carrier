@@ -6,6 +6,6 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "test": "node test/lib.test.mjs",
-    "deploy": "wrangler deploy"
+    "deploy": "npx wrangler deploy"
   }
 }
