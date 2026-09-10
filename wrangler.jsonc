@@ -1,0 +1,15 @@
+{
+  // crate-carrier — the user's own Cloudflare Worker fronting the user's own
+  // R2 bucket for https://crate.naklios.dev. Deploy-to-Cloudflare reads this
+  // file and provisions the bucket; nothing here needs an API token.
+  "name": "crate-carrier",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "vars": {
+    // Browser origins allowed to call this carrier. Never "*".
+    "ALLOW_ORIGINS": "https://crate.naklios.dev,https://crate.naklitechie.com"
+  },
+  "r2_buckets": [
+    { "binding": "BUCKET", "bucket_name": "crate" }
+  ]
+}

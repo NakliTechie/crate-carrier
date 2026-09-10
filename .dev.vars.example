@@ -1,0 +1,5 @@
+# Shared secret between your Crate browser tab and this carrier. The Crate
+# setup wizard generates it for you — paste it here at deploy time. Anyone
+# holding it can read and write your bucket's CIPHERTEXT (never plaintext:
+# files are encrypted in your browser before they reach this Worker).
+CARRIER_SECRET=
