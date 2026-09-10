@@ -135,7 +135,7 @@ export default {
         h.set("etag", obj.httpEtag);
         h.set("accept-ranges", "bytes");
         if (method === "HEAD") { h.set("content-length", String(obj.size)); return new Response(null, { status: 200, headers: h }); }
-        if (obj.range) {
+        if (range && obj.range) {
           const { offset = 0, length = obj.size - offset } = obj.range;
           h.set("content-range", `bytes ${offset}-${offset + length - 1}/${obj.size}`);
           h.set("content-length", String(length));
