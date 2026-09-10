@@ -37,6 +37,24 @@ function json(obj, status, extra) {
   });
 }
 
+function landingPage(origin, state, crateOrigin) {
+  const ok = state.ready && state.bucket;
+  const next = `${crateOrigin}/#carrier=${encodeURIComponent(origin)}`;
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>crate-carrier</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:34rem;margin:4rem auto;padding:0 1.25rem;color:#222}
+h1{font-size:1.4rem}code{background:#f3f3f3;padding:.1em .35em;border-radius:4px}
+a.btn{display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;padding:.7em 1.2em;border-radius:6px;margin-top:1rem}
+.bad{color:#a00}</style>
+<h1>crate-carrier</h1>
+<p>This is your own Cloudflare Worker fronting your own R2 bucket for <a href="${esc(crateOrigin)}">Crate</a>. It sees ciphertext only.</p>
+<ul><li>Secret configured: <b>${state.ready ? "yes" : '<span class="bad">no — set CARRIER_SECRET</span>'}</b></li>
+<li>R2 bucket bound: <b>${state.bucket ? "yes" : '<span class="bad">no</span>'}</b></li></ul>
+${ok ? `<a class="btn" href="${esc(next)}">Continue to Crate →</a><p><small>Crate will fill in <code>${esc(origin)}</code> for you; you only paste the secret.</small></p>`
+     : `<p class="bad">Fix the item above in the Worker's settings, then reload this page.</p>`}`;
+}
+
 function unquote(etag) {
   if (!etag) return null;
   const t = etag.trim();
@@ -58,7 +76,16 @@ export default {
     if (method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
     if (url.pathname === "/" || url.pathname === "/health") {
-      return json({ ok: true, service: "crate-carrier", ready: !!env.CARRIER_SECRET, bucket: !!env.BUCKET }, 200, cors);
+      const state = { ok: true, service: "crate-carrier", ready: !!env.CARRIER_SECRET, bucket: !!env.BUCKET };
+      // A browser landing on the Worker (the "Visit" button after deploy)
+      // gets a one-click hand-off into Crate carrying this Worker's URL;
+      // everything else gets the JSON health record.
+      if (url.pathname === "/" && (request.headers.get("accept") || "").includes("text/html")) {
+        return new Response(landingPage(url.origin, state, allowOrigins[0]), {
+          status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...cors },
+        });
+      }
+      return json(state, 200, cors);
     }
     if (!url.pathname.startsWith("/o/")) return json({ ok: false, error: "not found" }, 404, cors);
     if (!env.BUCKET) return json({ ok: false, error: "no R2 binding" }, 500, cors);

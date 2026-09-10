@@ -18,7 +18,7 @@ This Worker replaces all four with one click. It holds an R2 *binding* — not a
 
 1. Start a new folder at [crate.naklios.dev](https://crate.naklios.dev) and choose **One-click carrier**. Crate shows a generated secret.
 2. Click the button above. Cloudflare copies this repository into your GitHub or GitLab account, creates the R2 bucket, and asks for `CARRIER_SECRET` — paste the secret from step 1.
-3. Back in Crate, paste your new Worker's URL (`https://crate-carrier.<you>.workers.dev`). Done.
+3. Click **Visit** on Cloudflare's success screen. The Worker's page has a **Continue to Crate** button that carries its own URL back into the wizard — nothing to copy. Pick a passphrase. Done.
 
 Manual deploy, if you prefer:
 
