@@ -31,9 +31,12 @@ function corsHeaders(origin, allowOrigins) {
 }
 
 function json(obj, status, extra) {
+  // no-transform: the edge compresses JSON and then WEAKENS the ETag
+  // (W/"…"), which breaks If-Match on the next manifest write. The
+  // responses here are tiny; skip compression and keep ETags strong.
   return new Response(JSON.stringify(obj), {
     status,
-    headers: Object.assign({ "content-type": "application/json" }, extra || {}),
+    headers: Object.assign({ "content-type": "application/json", "cache-control": "no-store, no-transform" }, extra || {}),
   });
 }
 
