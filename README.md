@@ -28,6 +28,18 @@ npx wrangler deploy
 openssl rand -hex 32 | npx wrangler secret put CARRIER_SECRET
 ```
 
+## The desktop daemon
+
+[crate-agent](https://github.com/NakliTechie/crate-agent) (v1.3+) syncs the same folder to your computer through the same Worker — no hub, no pairing token:
+
+```sh
+crate-agent pair --carrier https://crate-carrier.<you>.workers.dev
+# prompts for the CARRIER_SECRET, then your folder passphrase; runs doctor
+crate-agent start
+```
+
+The daemon holds the carrier secret (encrypted under your passphrase on disk), which is ciphertext-only access to the bucket. Rotate `CARRIER_SECRET` on the Worker to cut it off.
+
 ## Security model
 
 - **Signed requests.** Every call carries `x-crate-ts`, `x-crate-nonce`, `x-crate-sig` = HMAC-SHA256(`CARRIER_SECRET`, `METHOD\npath\nsorted-query\nts\nnonce`). Bad signature or a timestamp outside ±5 minutes → 401. Constant-time compare.
