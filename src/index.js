@@ -37,6 +37,12 @@ function json(obj, status, extra) {
   });
 }
 
+function unquote(etag) {
+  if (!etag) return null;
+  const t = etag.trim();
+  return /^"(.*)"$/.test(t) ? t.slice(1, -1) : t;
+}
+
 function parseList(v) {
   return String(v || "").split(",").map((s) => s.trim()).filter(Boolean);
 }
@@ -107,7 +113,9 @@ export default {
         }
         const opts = { httpMetadata: { contentType: request.headers.get("content-type") || "application/octet-stream" } };
         // ETag-conditional PUT — Crate's manifest concurrency control.
-        const ifMatch = request.headers.get("if-match");
+        // R2's onlyIf takes the bare ETag; HTTP carries it quoted. Accept
+        // either from the client, hand R2 the unquoted form.
+        const ifMatch = unquote(request.headers.get("if-match"));
         const ifNoneMatch = request.headers.get("if-none-match");
         if (ifMatch) opts.onlyIf = { etagMatches: ifMatch };
         else if (ifNoneMatch === "*") opts.onlyIf = { etagDoesNotMatch: "*" };
