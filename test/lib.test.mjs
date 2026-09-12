@@ -61,3 +61,26 @@ for (const good of ["objects/01HXYZ", ".crate/manifest.jsonl.enc", ".crate/crate
 for (const bad of ["", "/abs", "a//b", "../x", "a/../b", "a/./b", "sp ace", "x\n", "é", "a".repeat(257)]) assert.ok(!validKey(bad), JSON.stringify(bad));
 
 console.log("OK: crate-carrier security core");
+
+// share links: query-string auth for one GET/HEAD until exp
+{
+  const { shareSign, shareVerify, SHARE_MAX_MS } = await import("../src/lib.js");
+  const path = "/o/objects/01ABC";
+  const exp = now + 3600_000;
+  const q = await shareSign(SECRET, { path, exp });
+  const qs = new URLSearchParams(q);
+  assert.deepEqual(await shareVerify(SECRET, { method: "GET", path, query: qs, now }), { ok: true });
+  assert.deepEqual(await shareVerify(SECRET, { method: "HEAD", path, query: qs, now }), { ok: true });
+  // bound to path, exp, secret, method; refused after expiry and beyond the cap
+  assert.equal((await shareVerify(SECRET, { method: "GET", path: "/o/objects/01XYZ", query: qs, now })).ok, false);
+  assert.equal((await shareVerify(SECRET, { method: "PUT", path, query: qs, now })).ok, false);
+  assert.equal((await shareVerify("other", { method: "GET", path, query: qs, now })).ok, false);
+  assert.equal((await shareVerify(SECRET, { method: "GET", path, query: qs, now: exp + 1 })).reason, "share link expired");
+  const tampered = new URLSearchParams(q); tampered.set("exp", String(exp + 1));
+  assert.equal((await shareVerify(SECRET, { method: "GET", path, query: tampered, now })).reason, "bad share signature");
+  const far = await shareSign(SECRET, { path, exp: now + SHARE_MAX_MS + 120_000 });
+  assert.equal((await shareVerify(SECRET, { method: "GET", path, query: new URLSearchParams(far), now })).reason, "share link too long-lived");
+  // the header path is untouched by a share param that is not "1"
+  assert.equal((await shareVerify(SECRET, { method: "GET", path, query: "share=1", now })).reason, "missing share parameters");
+  console.log("OK: share links — signed query auth for one object, read-only, expiring, bound to path");
+}

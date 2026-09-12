@@ -14,7 +14,7 @@
 // method/path/query/ts/nonce, ±5 min window, constant-time compare, CORS
 // scoped to configured origins (never "*"), conservative key validation.
 
-import { verify, validKey } from "./lib.js";
+import { verify, validKey, shareVerify } from "./lib.js";
 
 const SINGLE_PUT_MAX = 95 * 1024 * 1024; // under the 100 MB edge cap; larger ⇒ multipart
 
@@ -79,7 +79,7 @@ export default {
     if (method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
     if (url.pathname === "/" || url.pathname === "/health") {
-      const state = { ok: true, service: "crate-carrier", ready: !!env.CARRIER_SECRET, bucket: !!env.BUCKET };
+      const state = { ok: true, service: "crate-carrier", ready: !!env.CARRIER_SECRET, bucket: !!env.BUCKET, share: true };
       // A browser landing on the Worker (the "Visit" button after deploy)
       // gets a one-click hand-off into Crate carrying this Worker's URL;
       // everything else gets the JSON health record.
@@ -93,10 +93,14 @@ export default {
     if (!url.pathname.startsWith("/o/")) return json({ ok: false, error: "not found" }, 404, cors);
     if (!env.BUCKET) return json({ ok: false, error: "no R2 binding" }, 500, cors);
 
-    const v = await verify(env.CARRIER_SECRET, {
-      method, path: url.pathname, query: url.searchParams,
-      headers: (n) => request.headers.get(n),
-    });
+    // A share link authorises one GET/HEAD by query string; everything
+    // else carries the signed headers.
+    const v = url.searchParams.get("share") === "1"
+      ? await shareVerify(env.CARRIER_SECRET, { method, path: url.pathname, query: url.searchParams })
+      : await verify(env.CARRIER_SECRET, {
+        method, path: url.pathname, query: url.searchParams,
+        headers: (n) => request.headers.get(n),
+      });
     if (!v.ok) return json({ ok: false, error: "unauthorized: " + v.reason }, 401, cors);
 
     const key = decodeURIComponent(url.pathname.slice(3));

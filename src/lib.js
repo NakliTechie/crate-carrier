@@ -81,3 +81,38 @@ export function validKey(key) {
   if (key.startsWith("/") || key.includes("//") || key.split("/").some((s) => s === "." || s === "..")) return false;
   return true;
 }
+
+// --- share links ------------------------------------------------------
+// A share link is a GET on one object that carries its own authorisation
+// in the query string, so the recipient needs no secret:
+//   /o/<key>?share=1&exp=<unix ms>&sig=hex HMAC-SHA256(secret, shareCanonical)
+//   shareCanonical = "SHARE" \n path \n exp
+// The Worker accepts it until `exp` (at most 7 days from minting — the
+// browser enforces the cap when minting; the Worker only checks the
+// clock). Revocation is the carrier secret: rotate it and every share
+// link dies with every other signature.
+export const SHARE_MAX_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function shareCanonical({ path, exp }) {
+  return ["SHARE", String(path || "/"), String(exp || "")].join("\n");
+}
+
+// shareSign is what the owner's browser does. Returns the query params.
+export async function shareSign(secret, { path, exp }) {
+  return { share: "1", exp: String(exp), sig: await hmacHex(secret, shareCanonical({ path, exp })) };
+}
+
+// shareVerify is what the Worker does for a GET/HEAD carrying share=1.
+export async function shareVerify(secret, { method, path, query, now = Date.now() }) {
+  if (!secret) return { ok: false, reason: "carrier not configured (CARRIER_SECRET unset)" };
+  const m = String(method || "GET").toUpperCase();
+  if (m !== "GET" && m !== "HEAD") return { ok: false, reason: "share links are read-only" };
+  const q = query instanceof URLSearchParams ? query : new URLSearchParams(query || "");
+  const exp = Number(q.get("exp")), sig = q.get("sig");
+  if (!Number.isFinite(exp) || !sig) return { ok: false, reason: "missing share parameters" };
+  if (exp < Number(now)) return { ok: false, reason: "share link expired" };
+  if (exp - Number(now) > SHARE_MAX_MS + 60_000) return { ok: false, reason: "share link too long-lived" };
+  const expect = await hmacHex(secret, shareCanonical({ path, exp }));
+  if (!timingSafeEqual(expect, String(sig))) return { ok: false, reason: "bad share signature" };
+  return { ok: true };
+}

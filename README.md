@@ -44,6 +44,7 @@ The daemon holds the carrier secret (encrypted under your passphrase on disk), w
 
 - **Signed requests.** Every call carries `x-crate-ts`, `x-crate-nonce`, `x-crate-sig` = HMAC-SHA256(`CARRIER_SECRET`, `METHOD\npath\nsorted-query\nts\nnonce`). Bad signature or a timestamp outside ±5 minutes → 401. Constant-time compare.
 - **Bodies are not signed, on purpose.** They are multi-megabyte ciphertext chunks that stream straight through to R2; hashing them first would mean buffering every chunk in the Worker. The body is already authenticated end-to-end by AES-GCM in your browser under a key this Worker never has, and by TLS in flight. Every route is idempotent under replay within the window, so no nonce store is kept.
+- **Share links.** `GET /o/<key>?share=1&exp=<unix ms>&sig=…` authorises one read of one object until `exp` (sig = HMAC-SHA256(`CARRIER_SECRET`, `SHARE\npath\nexp`); at most 7 days; read-only). Crate mints these from the owner's tab; the recipient fetches ciphertext with no secret and decrypts with the per-file key carried in the link's fragment. Rotating `CARRIER_SECRET` revokes every outstanding link.
 - **CORS scoped, never `*`.** `ALLOW_ORIGINS` defaults to the two Crate origins; edit it in the Worker's settings if you self-host Crate.
 - **Conservative keys.** `[A-Za-z0-9._/-]`, no traversal, ≤ 256 chars.
 - **No logging** of bodies or headers. Errors never echo request content.
@@ -67,4 +68,9 @@ All under `/o/<key>`, all signed.
 | `PUT` | `/o/<key>?mpu=part&uploadId=…&n=…` | One part → `{partNumber, etag}` |
 | `POST` | `/o/<key>?mpu=complete&uploadId=…` | Body: `[{partNumber, etag}]` |
 | `POST` | `/o/<key>?mpu=abort&uploadId=…` | Discard |
-| `GET` | `/` | `{ready, bucket}` — is the secret set, is the bucket bound |
+| `GET` / `HEAD` | `/o/<key>?share=1&exp=…&sig=…` | One read, no headers — a share link |
+| `GET` | `/` | `{ready, bucket, share}` — is the secret set, is the bucket bound, are share links supported |
+
+## Updating a deployed carrier
+
+The Deploy button copied this repository into your GitHub account, and Cloudflare builds from *that* copy — so changes here do not reach your Worker on their own. To pick up a new route (share links arrived 2026-09-12): in your copy, **Sync fork** on GitHub (or `git pull upstream main && git push`), and Workers Builds redeploys it. Crate checks `GET /` for `share: true` and tells you when your carrier needs this.
